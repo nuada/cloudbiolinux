@@ -60,7 +60,7 @@ def _add_apt_gpg_keys():
     keyserver = [
             ("keyserver.ubuntu.com", "7F0CEB10"),
             ("keyserver.ubuntu.com", "E084DAB9"),
-            ("subkeys.pgp.net", "D018A4CE"),
+            ("keyserver.ubuntu.com", "D018A4CE"),
             ("keyserver.ubuntu.com", "D67FC6EAE2A11821"),
         ]
     standalone, keyserver = env.edition.rewrite_apt_keys(standalone, keyserver)
