@@ -59,7 +59,6 @@ def _download_executables(env, base_url, tools):
                     env.safe_sudo("cp -f %s %s" % (tool, install_dir))
 
 # --- Alignment tools
-@_if_not_installed("featureCounts")
 def install_featurecounts(env):
     """
     featureCounts from the subread package for counting reads mapping to
@@ -67,10 +66,13 @@ def install_featurecounts(env):
     """
     default_version = "1.4.4"
     version = env.get("tool_version", default_version)
+    if versioncheck.up_to_date(env, "featureCounts", version, stdout_flag="Version"):
+        return
+    platform = "MacOS" if env.distribution == "macosx" else "Linux"
     url = ("http://downloads.sourceforge.net/project/subread/"
-           "subread-%s/subread-%s-Linux-i386.tar.gz"
-           % (version, version))
-    _get_install(url, env, _make_copy("find -type f -perm -100 -name 'featureCounts'",
+           "subread-%s/subread-%s-%s-x86_64.tar.gz"
+           % (version, version, platform))
+    _get_install(url, env, _make_copy("find . -type f -perm -100 -name 'featureCounts'",
                                       do_make=False))
 
 
@@ -83,20 +85,7 @@ def install_bowtie(env):
     version = env.get("tool_version", default_version)
     url = "http://downloads.sourceforge.net/project/bowtie-bio/bowtie/%s/" \
           "bowtie-%s-src.zip" % (version, version)
-    _get_install(url, env, _make_copy("find -perm -100 -name 'bowtie*'"))
-
-@_if_not_installed("STAR")
-def install_star(env):
-    """The STAR spliced short read aligner.
-    http://code.google.com/p/rna-star/
-    """
-    default_version = "2.3.1z"
-    version = env.get("tool_version", default_version)
-    # Need latest alpha release to work around 13.04 compile error
-    # https://groups.google.com/forum/#!topic/rna-star/13S344Jknf4
-    url = "ftp://ftp2.cshl.edu/gingeraslab/tracks/STARrelease/Alpha/STAR_{version}.tgz"
-    _get_install(url.format(version=version), env,
-                 _make_copy("find -name 'STAR'"))
+    _get_install(url, env, _make_copy("find . -perm -100 -name 'bowtie*'"))
 
 @_if_not_installed("bowtie2")
 def install_bowtie2(env):
@@ -166,7 +155,7 @@ def install_snap(env):
     version = "0.15"
     url = "http://github.com/downloads/amplab/snap/" \
           "snap-%s-linux.tar.gz" % version
-    _get_install(url, env, _make_copy("find -perm -100 -type f", do_make=False))
+    _get_install(url, env, _make_copy("find . -perm -100 -type f", do_make=False))
 
 def install_stampy(env):
     """Stampy: mapping of short reads from illumina sequencing machines onto a reference genome.
@@ -262,7 +251,7 @@ def install_lastz(env):
           "lastz-%s.tar.gz" % version
     def _remove_werror(env):
         env.safe_sed("src/Makefile", " -Werror", "")
-    _get_install(url, env, _make_copy("find -perm -100 -name 'lastz'"),
+    _get_install(url, env, _make_copy("find . -perm -100 -name 'lastz'"),
                  post_unpack_fn=_remove_werror)
 
 @_if_not_installed("MosaikAligner")
@@ -273,7 +262,7 @@ def install_mosaik(env):
     version = "2.1.73"
     url = "http://mosaik-aligner.googlecode.com/files/" \
           "MOSAIK-%s-binary.tar" % version
-    _get_install(url, env, _make_copy("find -perm -100 -type f", do_make=False))
+    _get_install(url, env, _make_copy("find . -perm -100 -type f", do_make=False))
 
 # --- Utilities
 
@@ -285,7 +274,7 @@ def install_samtools(env):
     version = env.get("tool_version", default_version)
     if versioncheck.up_to_date(env, "samtools", version, stdout_flag="Version:"):
         env.logger.info("samtools version {0} is up to date; not installing"
-            .format(version))
+                        .format(version))
         return
     url = "http://downloads.sourceforge.net/project/samtools/samtools/" \
           "%s/samtools-%s.tar.bz2" % (version, version)
@@ -304,22 +293,6 @@ def install_samtools(env):
         for fname in env.safe_run_output("ls -1 samtools bcftools/bcftools bcftools/vcfutils.pl misc/wgsim").split("\n"):
             env.safe_sudo("cp -f %s %s" % (fname.rstrip("\r"), install_dir))
     _get_install(url, env, _safe_ncurses_make)
-
-@_if_not_installed("fastq_quality_boxplot_graph.sh")
-def install_fastx_toolkit(env):
-    """FASTX-Toolkit: collection of command line tools for Short-Reads FASTA/FASTQ files preprocessing.
-    http://hannonlab.cshl.edu/fastx_toolkit/
-    """
-    default_version = "0.0.13.2"
-    version = env.get("tool_version", default_version)
-    gtext_version = "0.6"
-    url_base = "http://hannonlab.cshl.edu/fastx_toolkit/"
-    fastx_url = "%sfastx_toolkit-%s.tar.bz2" % (url_base, version)
-    gtext_url = "%slibgtextutils-%s.tar.bz2" % (url_base, gtext_version)
-    def _remove_werror(env):
-        env.safe_sed("configure", " -Werror", "")
-    _get_install(gtext_url, env, _configure_make, post_unpack_fn=_remove_werror)
-    _get_install(fastx_url, env, _configure_make, post_unpack_fn=_remove_werror)
 
 def install_gemini(env):
     """A lightweight db framework for disease and population genetics.
@@ -555,20 +528,6 @@ def install_mutect(env):
                 env.safe_run("unzip %s" % out_file)
                 env.safe_sudo("mv *.jar version.txt LICENSE* %s" % install_dir)
 
-def install_cram(env):
-    """Highly efficient and tunable reference-based compression of sequence data.
-    http://www.ebi.ac.uk/ena/about/cram_toolkit/
-    """
-    version = "2.0"
-    url = "https://github.com/vadimzalunin/crammer/raw/master/" \
-          "cramtools-%s.jar" % version
-    install_dir = _symlinked_java_version_dir("cram", version, env)
-    if install_dir:
-        with _make_tmp_dir() as work_dir:
-            with cd(work_dir):
-                out_file = shared._remote_fetch(env, url)
-                env.safe_sudo("mv %s %s" % (out_file, install_dir))
-
 @_if_not_installed("bam")
 def install_bamutil(env):
     """Utilities for working with BAM files, from U of M Center for Statistical Genetics.
@@ -645,7 +604,7 @@ def install_snpeff(env):
                 dir_name = _fetch_and_unpack(url)
                 with cd(dir_name):
                     env.safe_sudo("mv *.jar %s" % install_dir)
-                    env.safe_run("sed -i.bak -r -e 's/^data_dir.*=.*/data_dir = %s\/data/' %s" %
+                    env.safe_run("sed -i.bak -e 's/^data_dir.*=.*/data_dir = %s\/data/' %s" %
                                  (install_dir.replace("/", "\/"), "snpEff.config"))
                     env.safe_run("chmod a+r *.config")
                     env.safe_sudo("mv *.config %s" % install_dir)
@@ -772,19 +731,16 @@ def install_tophat(env):
     """
     default_version = "2.0.9"
     version = env.get("tool_version", default_version)
-#    if versioncheck.up_to_date(env, "tophat", version, stdout_flag="TopHat"):
     if versioncheck.is_version(env, "tophat", version, args="--version", stdout_flag="TopHat"):
         env.logger.info("tophat version {0} is up to date; not installing"
             .format(version))
         return
+    platform = "OSX" if env.distribution == "macosx" else "Linux"
     url = "http://tophat.cbcb.umd.edu/downloads/" \
-          "tophat-%s.Linux_x86_64.tar.gz" % version
+          "tophat-%s.%s_x86_64.tar.gz" % (version, platform)
 
-    # def premake_cmd(env):
-    #     url = "http://dl.dropboxusercontent.com/u/2822886/tophat/tophat_fix.diff"
-    #     _apply_patch(env, url)
     _get_install(url, env,
-                 _make_copy("find -perm -100 -type f", do_make=False))
+                 _make_copy("find . -perm -100 -type f", do_make=False))
 
 install_tophat2 = install_tophat
 
@@ -797,7 +753,7 @@ def install_cufflinks(env):
     version = env.get("tool_version", default_version)
     url = "http://cufflinks.cbcb.umd.edu/downloads/" \
           "cufflinks-%s.Linux_x86_64.tar.gz" % version
-    _get_install(url, env, _make_copy("find -perm -100 -type f",
+    _get_install(url, env, _make_copy("find . -perm -100 -type f",
                                       do_make=False))
 
 # --- Assembly
@@ -843,7 +799,7 @@ def install_velvet(env):
         error-installing-velvet-assembler-1-1-06-on-ubuntu-server
         """
         env.safe_sed("Makefile", "Z_LIB_FILES=-lz", "Z_LIB_FILES=-lz -lm")
-    _get_install(url, env, _make_copy("find -perm -100 -name 'velvet*'"),
+    _get_install(url, env, _make_copy("find . -perm -100 -name 'velvet*'"),
                  post_unpack_fn=_fix_library_order)
 
 @_if_not_installed("Ray")
@@ -856,7 +812,7 @@ def install_ray(env):
     url = "http://downloads.sourceforge.net/project/denovoassembler/Ray-v%s.tar.bz2" % version
     def _ray_do_nothing(env):
         return
-    _get_install(url, env, _make_copy("find -name Ray"),
+    _get_install(url, env, _make_copy("find . -name Ray"),
                  post_unpack_fn=_ray_do_nothing)
 
 def install_trinity(env):
@@ -908,7 +864,7 @@ def install_bcbio_variation(env):
     """Toolkit to analyze genomic variation data with comparison and ensemble approaches.
     https://github.com/chapmanb/bcbio.variation
     """
-    version = "0.1.5"
+    version = "0.1.6"
     url = "https://github.com/chapmanb/bcbio.variation/releases/download/" \
           "v%s/bcbio.variation-%s-standalone.jar" % (version, version)
     install_dir = _symlinked_java_version_dir("bcbio_variation", version, env)
@@ -986,7 +942,7 @@ def install_freec(env):
             url = "http://bioinfo-out.curie.fr/projects/freec/src/FREEC_LINUX32.tar.gz"
 
         if not versioncheck.up_to_date(env, "freec", version, stdout_index=1):
-            _get_install(url, env, _make_copy("find -name 'freec'"), dir_name=".")
+            _get_install(url, env, _make_copy("find . -name 'freec'"), dir_name=".")
 
 @_if_not_installed("CRISP.py")
 def install_crisp(env):
@@ -1043,7 +999,7 @@ def install_weblogo(env):
     """
     version = "2.8.2"
     url = "http://weblogo.berkeley.edu/release/weblogo.%s.tar.gz" % version
-    _get_install(url, env, _make_copy("find -perm -100 -type f", do_make=False))
+    _get_install(url, env, _make_copy("find . -perm -100 -type f", do_make=False))
     def _cp_pm(env):
         for perl_module in ["template.pm", "logo.pm", "template.eps"]:
             env.safe_sudo("cp %s %s/lib/perl5" % (perl_module, env.system_install))
